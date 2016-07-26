@@ -1,4 +1,4 @@
-local NetCmd = require "SurviveServer.netcmd.netcmd"
+local NetCmd = require "netcmd.netcmd"
 
 local sock2game = {}
 local name2game = {}
@@ -9,7 +9,7 @@ end
 
 local function RegRpcService(app)
 	--gameserver登录到groupserver
-	app:RPCService("GameLogin",function (sock,name,ip,port)
+	app:RPCService("GameLogin",function (name,ip,port,sock)
 		if sock2game[sock] == nil and name2game[name] == nil then
 			local game = {sock = sock,name = name,players={},plycount=0,ip=ip,port=port}
 			sock.type = "game"
@@ -45,6 +45,15 @@ local function OnGameDisconnected(sock,errno)
 		for k,v in pairs(game.players) do
 			v.gamesession = nil
 			v.mapinstance = nil
+			local wpk = CPacket.NewWPacket(64)
+			wpk:Write_uint16(NetCmd.CMD_GC_BACK2MAIN)
+			v:Send2Client(wpk)
+			v.bag:SynBattleItem()							
+		end
+
+		if game.survive then
+			game.OnGameDisconnected()
+			game.survive = nil
 		end
 		sock2game[sock] = nil
 		game.sock = nil
@@ -59,11 +68,13 @@ local function Bind(game,player,sessionid)
 end
 
 local function UnBind(player)
-	local game = player.gamesession.game
-	if game then
-		game.players[player.gamesession.sessionid] = nil
-		game.plycount = game.plycount - 1
-		player.gamesession = nil
+	if player.gamesession then
+		local game = player.gamesession.game
+		if game then
+			game.players[player.gamesession.sessionid] = nil
+			game.plycount = game.plycount - 1
+			player.gamesession = nil
+		end
 	end
 end
 

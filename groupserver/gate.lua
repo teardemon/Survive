@@ -1,4 +1,4 @@
-local Game = require "SurviveServer.groupserver.game"
+local Game = require "groupserver.game"
 
 local sock2gate = {}
 local name2gate = {}
@@ -9,7 +9,7 @@ end
 
 local function RegRpcService(app)
 	--gateserver登录到groupserver
-	app:RPCService("GateLogin",function (sock,name)
+	app:RPCService("GateLogin",function (name,sock)
 		if sock2gate[sock] == nil and name2gate[name] == nil then
 			local gate = {sock = sock,name = name,players={}}
 			sock.type = "gate"

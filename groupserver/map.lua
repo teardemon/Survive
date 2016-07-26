@@ -1,10 +1,13 @@
-local Game = require "SurviveServer.groupserver.game"
+local Game = require "groupserver.game"
 local RPC = require "lua.rpc"
 local LinkQue = require "lua.linkque"
 local Sche = require "lua.sche"
-local NetCmd = require "SurviveServer.netcmd.netcmd"
-local Bag = require "SurviveServer.groupserver.bag"
-require "SurviveServer.common.TableMap"
+local NetCmd = require "netcmd.netcmd"
+local Bag = require "groupserver.bag"
+local Achi = require "groupserver.achievement"
+local Task = require "groupserver.everydaytask"
+local Survive = require "groupserver.survive"
+require "common.TableMap"
 
 
 --地图实例
@@ -100,7 +103,7 @@ local function EnterMapOpen(ply,maptype,mapdef)
 		instance:AddPlyCount(1)
 	end
 	local rpccaller = RPC.MakeRPC(game.sock,"EnterMap")	
-	local err,ret = rpccaller:Call(mapid,maptype,plys)
+	local err,ret = rpccaller:CallSync(mapid,maptype,plys)
 	if err or not ret[1] then
 		if instance then
 			instance:SubPlyCount(1)
@@ -181,7 +184,7 @@ function ReqQue:ProcessEnter()
 	local err,ret
 	if game then
 		local rpccaller = RPC.MakeRPC(game.sock,"EnterMap")	
-		err,ret = rpccaller:Call(0,self.maptype,plys)
+		err,ret = rpccaller:CallSync(0,self.maptype,plys)
 	end
 	if not game or err or not ret[1] then
 		if err then
@@ -206,6 +209,13 @@ function ReqQue:ProcessEnter()
 		Game.Bind(game,tmp[i],gameids[i])
 		tmp[i].mapinstance = instance
 		tmp[i].status = playing
+		if self.maptype == 203 then  
+			tmp[i].achieve:OnEvent(Achi.AchiType.ACHI_5PVE)
+			tmp[i].task:OnEvent(Task.TaskType.PVE5)
+		elseif self.maptype == 204 then
+			tmp[i].achieve:OnEvent(Achi.AchiType.ACHI_5PVP)
+			tmp[i].task:OnEvent(Task.TaskType.PVP5)
+		end
 		log_groupserver:Log(CLog.LOG_ERROR,string.format("EnterMapMutil %s gameid %d gamename [%s]",tmp[i].actname,gameids[1],game.name))
 	end
 	log_groupserver:Log(CLog.LOG_ERROR,string.format("EnterMapMutil create new map [%d] instance %d",self.maptype,mapid))			
@@ -236,6 +246,7 @@ local function EnterMap(ply,type)
 	print("EnterMap",type)
 	local mapdef = TableMap[type]
 	if not mapdef then
+		--print("EnterMap1",type)
 		return false,"undefine map type:" .. type
 	end
 
@@ -243,16 +254,21 @@ local function EnterMap(ply,type)
 	local gather_start =  ply.attr:Get("gather_start")
 	local sit_start = ply.attr:Get("sit_start")
 	if (fishing_start and fishing_start ~=0) or (gather_start and gather_start ~= 0) or (sit_start and sit_start ~=0) then
+	    	--print("EnterMap2",type)
 	    	return false,"alreay in fishing or gather"
 	end
+	--print("EnterMap3",mapdef.type)
 	local playtype = mapdef["PlayType"]
-	if playtype == "open" then
+	if type == 206 then
+		Transfer(ply,nil,nil)
+	elseif playtype == "open" then
 		return 	EnterMapOpen(ply,type,mapdef)
-	elseif playtype == "personal" then
+	elseif playtype == "personal"  then
 		return EnterMapPersonal(ply,type,mapdef)
 	elseif playtype == "mutil" then
 		return EnterMapMutil(ply,type,mapdef)
 	else
+		--print("EnterMap4",type)
 		return false,"undefine playtype"
 	end
 end
@@ -260,15 +276,18 @@ end
 local function LeaveMap(ply)
 	local err,ret
 	local rpccaller = RPC.MakeRPC(ply.gamesession.game.sock,"LeaveMap")	
-	err,ret = rpccaller:Call(ply.gamesession.sessionid)
+	err,ret = rpccaller:CallSync(ply.gamesession.sessionid)
 	if not err then
-		ply.mapinstance:SubPlyCount(1)
+		if type(ply.mapinstance) ~= "number" then
+			ply.mapinstance:SubPlyCount(1)
+		end
 		Game.UnBind(ply)
 		ply.mapinstance = nil
 		local wpk = CPacket.NewWPacket(256)
 		wpk:Write_uint16(NetCmd.CMD_GC_BACK2MAIN)
 		ply:Send2Client(wpk)	
-		print("leave map success")
+		ply.bag:SynBattleItem()	
+		--print("leave map success")
 	end
 	return ret
 end

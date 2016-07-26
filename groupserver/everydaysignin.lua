@@ -1,6 +1,6 @@
-local MsgHandler = require "SurviveServer.netcmd.msghandler"
-local Db = require "SurviveServer.common.db"
-local NetCmd = require "SurviveServer.netcmd.netcmd"
+local MsgHandler = require "netcmd.msghandler"
+local Db = require "common.db"
+local NetCmd = require "netcmd.netcmd"
 local Cjson = require "cjson"
 local everydaysignin = {}
 
@@ -92,7 +92,7 @@ end
 
 function everydaysignin:DbSave()
 	local cmd = "hmset chaid:" .. self.owner.chaid .. " everydaysign  " .. self:DbStr()
-	Db.Command(cmd)
+	Db.CommandAsync(cmd)
 end
 
 MsgHandler.RegHandler(NetCmd.CMD_CG_EVERYDAYSIGN,function (sock,rpk)

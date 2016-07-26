@@ -1,6 +1,6 @@
 local LinkQue = require "lua.linkque"
-local NetCmd = require "SurviveServer.netcmd.netcmd"
-local IdMgr = require "SurviveServer.common.idmgr"
+local NetCmd = require "netcmd.netcmd"
+local IdMgr = require "common.idmgr"
 --local freeidx = LinkQue.New()
 
 local id2player = {}
@@ -87,6 +87,7 @@ local function ReleasePlayer(ply)
 end
 
 local function OnPlayerDisconnected(sock,errno)
+	print("OnPlayerDisconnected",errno)
 	local ply = GetPlayerBySock(sock)
 	if not ply then
 		return
@@ -105,7 +106,7 @@ local function OnGameDisconnected(sock)
 	for k,v in pairs(id2player) do
 		if v.gamesession and v.gamesession.sock == sock then
 			v.gamesession = nil
-			v.sock:Close()
+			--v.sock:Close()
 		end
 	end
 end

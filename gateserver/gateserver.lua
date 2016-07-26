@@ -2,13 +2,13 @@ log_gateserver = CLog.New("gateserver")
 local TcpServer = require "lua.tcpserver"
 local App = require "lua.application"
 local RPC = require "lua.rpc"
-local Player = require "SurviveServer.gateserver.gateplayer"
-local NetCmd = require "SurviveServer.netcmd.netcmd"
-local MsgHandler = require "SurviveServer.netcmd.msghandler"
+local Player = require "gateserver.gateplayer"
+local NetCmd = require "netcmd.netcmd"
+local MsgHandler = require "netcmd.msghandler"
 local Sche = require "lua.sche"
 local Socket = require "lua.socket"
-local Db = require "SurviveServer.common.db"
-local Config = require "SurviveServer.common.config"
+local Db = require "common.db"
+local Config = require "common.config"
 
 
 local ret,err = Config.Init("测试1服","127.0.0.1",6379)
@@ -104,7 +104,7 @@ if ret then
 				if name2game[name] and name2game[name].sock then
 					return
 				end		
-				local sock = Socket.New(CSocket.AF_INET,CSocket.SOCK_STREAM,CSocket.IPPROTO_TCP)
+				local sock = Socket.Stream.New(CSocket.AF_INET)
 				--print("connect_to_game",name,ip,port)
 				if not sock:Connect(ip,port) then
 					sock:Establish(CSocket.rpkdecoder(65535))				
@@ -116,7 +116,7 @@ if ret then
 									connect_to_game(name,ip,port)
 								end)
 					local rpccaller = RPC.MakeRPC(sock,"Login")
-					local err,ret = rpccaller:Call("gate1")
+					local err,ret = rpccaller:CallSync("gate1")
 					if err or ret == "Login failed" then
 						if err then
 							log_gateserver:Log(CLog.LOG_INFO,string.format("login to gameserver %s failed:%s",name,err))
@@ -153,6 +153,7 @@ if ret then
 	end)
 
 	MsgHandler.RegHandler(NetCmd.CMD_CA_LOGIN,function (sock,rpk)
+		print("NetCmd.CMD_CA_LOGIN")
 		local type = rpk:Read_uint8()
 		local actname = rpk:Read_string()
 		local player = Player.GetPlayerBySock(sock) or Player.NewGatePly(sock)
@@ -169,7 +170,7 @@ if ret then
 			return
 		end
 		player.status = Player.verifying
-		local err,result = Db.Command("get " .. actname)		
+		local err,result = Db.CommandSync("get " .. actname)		
 		if not Player.IsVaild(player) then
 			Player.ReleasePlayer(player) --玩家连接已经提前断开
 			return
@@ -180,7 +181,9 @@ if ret then
 			sock:Close()
 			return	
 		end
+		print(result)
 		local chaid = result or 0
+		chaid = tonumber(chaid)
 		if not togroup then
 			--通知系统繁忙
 			player.status = nil
@@ -190,7 +193,7 @@ if ret then
 			--验证通过,登录到group
 			local rpccaller = RPC.MakeRPC(togroup,"PlayerLogin")
 			player.status = Player.login2group
-			local err,ret = rpccaller:Call(actname,chaid,player.sessionid)			
+			local err,ret = rpccaller:CallSync(actname,chaid,player.sessionid)			
 			if err then
 				log_gateserver:Log(CLog.LOG_INFO,string.format("CMD_CA_LOGIN %s PlayerLogin rpc error %s",actname,err))
 				player.status = nil
@@ -234,13 +237,13 @@ if ret then
 		togroup = nil
 		Sche.Spawn(function ()
 			while true do
-				local sock = Socket.New(CSocket.AF_INET,CSocket.SOCK_STREAM,CSocket.IPPROTO_TCP)
+				local sock = Socket.Stream.New(CSocket.AF_INET)
 				if not sock:Connect(group_ip,group_port) then
 					sock:Establish(CSocket.rpkdecoder(65535))
 					toinner:Add(sock,OnInnerMsg,connect_to_group)								
 					--登录到groupserver
 					local rpccaller = RPC.MakeRPC(sock,"GateLogin")
-					local err,ret = rpccaller:Call("gate1")
+					local err,ret = rpccaller:CallSync("gate1")
 					if err or ret == "Login failed" then
 						if err then
 							log_gateserver:Log(CLog.LOG_INFO,string.format("login group failed:%s",err))
@@ -274,8 +277,9 @@ if ret then
 	--在连接上groupserver和db初始化完成后才启动对客户端的监听
 
 	if TcpServer.Listen(ip,port,function (sock)
-			sock:Establish(CSocket.rpkdecoder(4096))
-			toclient:Add(sock,OnClientMsg,Player.OnPlayerDisconnected,60000)		
+			print("new client")
+			sock:Establish(CSocket.rpkdecoder(4096),1024)
+			toclient:Add(sock,OnClientMsg,Player.OnPlayerDisconnected)		
 		end) then
 		log_gateserver:Log(CLog.LOG_ERROR,string.format("start server on %s:%d error",ip,port))
 

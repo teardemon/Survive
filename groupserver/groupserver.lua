@@ -1,27 +1,29 @@
 log_groupserver = CLog.New("groupserver")
 
 createcha  = 1
-loading    = 2
-playing    = 3
-releasing  = 4
-entermap   = 5
-leavingmap = 6
-queueing = 7
+creating = 2
+loading    = 3
+playing    = 4
+releasing  = 5
+entermap   = 6
+leavingmap = 7
+queueing = 8
+
 
 local TcpServer = require "lua.tcpserver"
 local App = require "lua.application"
 local RPC = require "lua.rpc"
-local Player = require "SurviveServer.groupserver.groupplayer"
-local NetCmd = require "SurviveServer.netcmd.netcmd"
-local MsgHandler = require "SurviveServer.netcmd.msghandler"
-local Db = require "SurviveServer.common.db"
+local Player = require "groupserver.groupplayer"
+local NetCmd = require "netcmd.netcmd"
+local MsgHandler = require "netcmd.msghandler"
+local Db = require "common.db"
 local Sche = require "lua.sche"
-local Gate = require "SurviveServer.groupserver.gate"
-local Game = require "SurviveServer.groupserver.game"
-local Config = require "SurviveServer.common.config"
+local Gate = require "groupserver.gate"
+local Game = require "groupserver.game"
+local Config = require "common.config"
 
 
-App.SetMaxRecverPerSocket(65535)
+--App.SetMaxRecverPerSocket(65535)
 local ret,err = Config.Init("测试1服","127.0.0.1",6379)
 if ret then
 	local redis_ip = Config.Get("db")[1]
@@ -35,7 +37,7 @@ if ret then
 		Sche.Yield()
 	end
 
-	local groupApp = App.New()
+	local groupApp = App.New(65536)
 	--注册Gate模块提供的RPC服务
 	Gate.RegRpcService(groupApp)
 	--注册Game模块提供的RPC服务	

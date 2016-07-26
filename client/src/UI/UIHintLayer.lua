@@ -1,4 +1,6 @@
 local comm = require "common.CommonFun"
+local UIMessage = require "UI.UIMessage"
+
 local UIHintLayer = class("UIHintLayer", function()
     return require("UI.UIBaseLayer").create()
 end)
@@ -95,7 +97,7 @@ function UIHintLayer:showHint(source, itemIdx)
             height = self:createItem(item)
         end
         if height > 0 then
-            self.back:setPreferredSize({width = 320, height = height})
+            self.back:setPreferredSize({width = 320, height = height})            
             return 400, height    
         end
 	end
@@ -103,11 +105,14 @@ function UIHintLayer:showHint(source, itemIdx)
 	return nil
 end 
 
+function UIHintLayer:UpdateGuide()
+end
+
 function UIHintLayer:createBtn(btns, posY)
     if self.source == EnumHintType.other then
         return
     end
-
+    local hud = cc.Director:getInstance():getRunningScene().hud
     local function handle(sender, event)
         local tag = sender:getTag()
         if tag == EnumBtnType.Intensify then
@@ -119,11 +124,20 @@ function UIHintLayer:createBtn(btns, posY)
                 CMD_CG_SWAP(self.item.bagpos, itemInfo.Item_Type)
             end
         elseif tag == EnumBtnType.Use then
-            CMD_CG_USEITEM(self.item.bagpos)
+            local itemInfo = TableItem[self.item.id]
+            if maincha.attr.level < itemInfo.Use_level then
+                UIMessage.showMessage(Lang.LessUseLevel)
+            else
+                CMD_CG_USEITEM(self.item.bagpos)    
+            end            
         elseif tag == EnumBtnType.Sell then
             CMD_CG_USEITEM(self.item.bagpos)
         elseif tag == EnumBtnType.Exchange then
         elseif tag == EnumBtnType.Compound then
+            local bag = hud:getUI("UIBag")
+            if bag then
+                bag:ShowCompound(self.item)
+            end
         elseif tag == EnumBtnType.Take then
             local nilPos = 0
             for i = 5, 10 do
@@ -132,8 +146,11 @@ function UIHintLayer:createBtn(btns, posY)
                     break
                 end
             end
+            
             if nilPos > 0 then
                 CMD_LOADBATTLEITEM(self.item.bagpos)
+            else
+                UIMessage.showMessage(Lang.UpToMax)
             end
         elseif tag == EnumBtnType.Unload then
             local nilPos = 0
@@ -155,7 +172,7 @@ function UIHintLayer:createBtn(btns, posY)
                 CMD_UNLOADBATTLEITEM(self.item.bagpos)
             end
         end
-        cc.Director:getInstance():getRunningScene().hud:closeUI(self.class.__cname)
+        hud:closeUI(self.class.__cname)
     end
     
     local startx = -80

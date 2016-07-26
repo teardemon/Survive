@@ -28,10 +28,11 @@ function UIPopup:showPopMessag(msgStr)
     self.createScale9Sprite("UI/common/tip.png", {x = 0, y = 0}, 
         {width = 400, height = 247}, {self, {x = 0.5, y = 0.5}})
     --local msgStr = "洗点功能按钮点击有弹出确认框，玩家花费相应的货币洗点（加点界面）"
-    self.createLabel(msgStr, nil, 
+    local lbl = self.createLabel(msgStr, nil, 
         { x = 0, y = 80}, nil, {self, {x = 0.5, y = 1}},
         {width = 360, height = 0})
-        
+    lbl:enableOutline(ColorBlack, 2)   
+    
     local function onConfirmTouched(sender, event)
         if sender == self.btnConfirm then
             if self.popType == EnumPopupType.cancelGarden then
@@ -55,7 +56,6 @@ function UIPopup:showPopMessag(msgStr)
         ignore = false,
         parent =  self    
     }
-
 end
 
 return UIPopup

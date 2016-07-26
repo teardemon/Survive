@@ -2,17 +2,16 @@ log_gameserver = CLog.New("gameserver")
 local TcpServer = require "lua.tcpserver"
 local App = require "lua.application"
 local RPC = require "lua.rpc"
-local NetCmd = require "SurviveServer.netcmd.netcmd"
-local MsgHandler = require "SurviveServer.netcmd.msghandler"
+local NetCmd = require "netcmd.netcmd"
+local MsgHandler = require "netcmd.msghandler"
 local Sche = require "lua.sche"
 local Socket = require "lua.socket"
-local Gate = require "SurviveServer.gameserver.gate"
+local Gate = require "gameserver.gate"
 local Timer = require "lua.timer"
-local Map = require "SurviveServer.gameserver.map"
+local Map = require "gameserver.map"
+local Config = require "common.config"
 
-local Config = require "SurviveServer.common.config"
-
-App.SetMaxRecverPerSocket(65535)
+--App.SetMaxRecverPerSocket(65535)
 local ret,err = Config.Init("测试1服","127.0.0.1",6379)
 if ret then
 
@@ -22,7 +21,6 @@ if ret then
 	local ip = Config.Get("game1")[1]
 	local port = Config.Get("game1")[2]
 
-	local togroup
 	local gameApp = App.New()
 
 	--注册gate模块的RPC服务
@@ -37,13 +35,13 @@ if ret then
 		togroup = nil
 		Sche.Spawn(function ()
 			while true do
-				local sock = Socket.New(CSocket.AF_INET,CSocket.SOCK_STREAM,CSocket.IPPROTO_TCP)
+				local sock = Socket.Stream.New(CSocket.AF_INET)
 				if not sock:Connect(group_ip,group_port) then
 					sock:Establish(CSocket.rpkdecoder(65535))
 					gameApp:Add(sock,MsgHandler.OnMsg,connect_to_group)				
 					--登录到groupserver
 					local rpccaller = RPC.MakeRPC(sock,"GameLogin")
-					local err,ret = rpccaller:Call("game1",ip,port)
+					local err,ret = rpccaller:CallSync("game1",ip,port)
 					if err or ret == "Login failed" then
 						if err then
 							log_gameserver:Log(CLog.LOG_INFO,string.format("GameLogin RPC error:%s",err))
@@ -66,6 +64,12 @@ if ret then
 
 	connect_to_group()
 	--gameApp:Run()
+
+	function Send2Group(wpk)
+		if togroup then
+			togroup:Send(wpk)
+		end
+	end
 
 
 	while not togroup do
